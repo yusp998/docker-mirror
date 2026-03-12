@@ -20,12 +20,12 @@ jobs:
 
       - name: Clone seatunnel source
         run: |
-          git clone --depth=1 --branch 2.3.12 \
+          git clone --depth=1 --branch 2.3.11 \
             https://github.com/apache/seatunnel.git
 
       - name: Clone seatunnel-web source
         run: |
-          git clone --depth=1 --branch 2.3.12 \
+          git clone --depth=1 --branch 1.0.2 \
             https://github.com/apache/seatunnel-web.git
 
       - name: Build seatunnel engine (获取 plugin-mapping)
@@ -41,8 +41,8 @@ jobs:
       - name: Copy plugin-mapping to seatunnel-web
         run: |
           cd seatunnel-web
-          tar -zxvf ../seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.12-bin.tar.gz
-          cp apache-seatunnel-2.3.12/connectors/plugin-mapping.properties \
+          tar -zxvf ../seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.11-bin.tar.gz
+          cp apache-seatunnel-2.3.11/connectors/plugin-mapping.properties \
             seatunnel-server/seatunnel-app/src/main/resources/
 
       - name: Build seatunnel-web
@@ -73,7 +73,7 @@ jobs:
           EOF
 
           cd docker-build
-          docker build -t seatunnel-web:2.3.12 .
+          docker build -t seatunnel-web:1.0.2 .
 
       - name: Login to Aliyun ACR
         run: |
@@ -84,9 +84,9 @@ jobs:
 
       - name: Push to ACR
         run: |
-          docker tag seatunnel-web:2.3.12 \
-            ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:2.3.12
+          docker tag seatunnel-web:1.0.2 \
+            ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:1.0.2
           docker push \
-            ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:2.3.12
+            ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:1.0.2
           echo "✅ 推送完成！"
-          echo "拉取命令: docker pull ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:2.3.12"
+          echo "拉取命令: docker pull ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:1.0.2"
