@@ -57,20 +57,29 @@ jobs:
       - name: Build Docker image
         run: |
           WEB_PKG=$(find seatunnel-web/seatunnel-web-dist/target -name "*.tar.gz" | head -1)
+          echo "找到的包: $WEB_PKG"
           mkdir -p docker-build
           cp $WEB_PKG docker-build/
 
-          cat > docker-build/Dockerfile << 'EOF'
-          FROM eclipse-temurin:11-jre-jammy
-          WORKDIR /opt
-          COPY *.tar.gz /opt/
-          RUN tar -zxvf *.tar.gz && \
-              mv apache-seatunnel-web-* seatunnel-web && \
-              rm -f *.tar.gz
-          WORKDIR /opt/seatunnel-web
-          EXPOSE 8849
-          CMD ["sh", "bin/seatunnel-backend-daemon.sh", "start"]
-          EOF
+          cd docker-build
+          tar -zxvf *.tar.gz
+          ls -la
+          EXTRACTED_DIR=$(ls -d */ | head -1 | tr -d '/')
+          echo "解压后目录名: $EXTRACTED_DIR"
+          rm -rf $EXTRACTED_DIR
+          cd ..
+
+          cat > docker-build/Dockerfile << EOF
+FROM eclipse-temurin:11-jre-jammy
+WORKDIR /opt
+COPY *.tar.gz /opt/
+RUN tar -zxvf *.tar.gz && \
+    mv ${EXTRACTED_DIR} seatunnel-web && \
+    rm -f *.tar.gz
+WORKDIR /opt/seatunnel-web
+EXPOSE 8849
+CMD ["sh", "bin/seatunnel-backend-daemon.sh", "start"]
+EOF
 
           cd docker-build
           docker build -t seatunnel-web:1.0.2 .
@@ -85,8 +94,8 @@ jobs:
       - name: Push to ACR
         run: |
           docker tag seatunnel-web:1.0.2 \
-            ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:1.0.2
+            crpi-w6hab0wki339s4cg.cn-hangzhou.personal.cr.aliyuncs.com/yusp-mirrors/seatunnel-web:1.0.2
           docker push \
-            ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:1.0.2
+            crpi-w6hab0wki339s4cg.cn-hangzhou.personal.cr.aliyuncs.com/yusp-mirrors/seatunnel-web:1.0.2
           echo "✅ 推送完成！"
-          echo "拉取命令: docker pull ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:1.0.2"
+          echo "拉取命令: docker pull crpi-w6hab0wki339s4cg.cn-hangzhou.personal.cr.aliyuncs.com/yusp-mirrors/seatunnel-web:1.0.2"
