@@ -61,7 +61,7 @@ jobs:
           cp $WEB_PKG docker-build/
 
           cat > docker-build/Dockerfile << 'EOF'
-          FROM openjdk:11-jre-slim
+          FROM eclipse-temurin:11-jre-jammy
           WORKDIR /opt
           COPY *.tar.gz /opt/
           RUN tar -zxvf *.tar.gz && \
