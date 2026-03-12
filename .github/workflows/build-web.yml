@@ -85,8 +85,8 @@ jobs:
       - name: Push to ACR
         run: |
           docker tag seatunnel-web:2.3.12 \
-            ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel-web:2.3.12
+            ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:2.3.12
           docker push \
-            ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel-web:2.3.12
+            ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:2.3.12
           echo "✅ 推送完成！"
-          echo "拉取命令: docker pull ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel-web:2.3.12"
+          echo "拉取命令: docker pull ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel-web:2.3.12"
