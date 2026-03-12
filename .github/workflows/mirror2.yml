@@ -1,4 +1,4 @@
-name: Build and Push SeaTunnel Images
+name: Build and Push SeaTunnel to ACR
 
 on:
   workflow_dispatch:
@@ -8,8 +8,8 @@ jobs:
   mirror-seatunnel:
     runs-on: ubuntu-latest
     steps:
-      - name: Pull apache/seatunnel:2.3.8
-        run: docker pull apache/seatunnel:2.3.8
+      - name: Pull apache/seatunnel:2.3.12
+        run: docker pull apache/seatunnel:2.3.12
 
       - name: Login to Aliyun ACR
         run: |
@@ -20,33 +20,36 @@ jobs:
 
       - name: Push to ACR
         run: |
-          docker tag apache/seatunnel:2.3.8 ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel:2.3.8
-          docker push ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel:2.3.8
+          docker tag apache/seatunnel:2.3.12 ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel:2.3.12
+          docker push ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel:2.3.12
+          echo "✅ seatunnel 引擎镜像推送完成！"
 
-  # Job2: 编译 seatunnel-web 源码并构建镜像
+  # Job2: 编译 seatunnel-web 并推送
   build-seatunnel-web:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up JDK 8
-        uses: actions/setup-java@v3
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
         with:
-          java-version: '8'
+          java-version: '11'
           distribution: 'temurin'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Set up Node.js 16
+        uses: actions/setup-node@v4
         with:
           node-version: '16'
 
-      - name: Checkout seatunnel source
+      - name: Clone seatunnel source
         run: |
-          git clone --depth=1 --branch 2.3.8 https://github.com/apache/seatunnel.git
-          
-      - name: Checkout seatunnel-web source
-        run: |
-          git clone --depth=1 --branch 2.3.8 https://github.com/apache/seatunnel-web.git
+          git clone --depth=1 --branch 2.3.12 \
+            https://github.com/apache/seatunnel.git
 
-      - name: Build seatunnel engine
+      - name: Clone seatunnel-web source
+        run: |
+          git clone --depth=1 --branch 2.3.12 \
+            https://github.com/apache/seatunnel-web.git
+
+      - name: Build seatunnel engine (获取 plugin-mapping)
         working-directory: seatunnel
         run: |
           ./mvnw -B clean install \
@@ -56,46 +59,42 @@ jobs:
             -Dlicense.skipAddThirdParty=true \
             -Dskip.spotless=true
 
-      - name: Copy plugin-mapping to web
+      - name: Copy plugin-mapping to seatunnel-web
         run: |
-          cp seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.8-bin.tar.gz seatunnel-web/
           cd seatunnel-web
-          tar -zxvf apache-seatunnel-2.3.8-bin.tar.gz
-          cp apache-seatunnel-2.3.8/connectors/plugin-mapping.properties \
+          tar -zxvf ../seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.12-bin.tar.gz
+          cp apache-seatunnel-2.3.12/connectors/plugin-mapping.properties \
             seatunnel-server/seatunnel-app/src/main/resources/
 
       - name: Build seatunnel-web
         working-directory: seatunnel-web
         run: |
-          export ST_WEB_BASEDIR_PATH=$(pwd)/seatunnel-web-dist/target/apache-seatunnel-web-2.3.8-bin/
           ./mvnw -B clean install \
             -DskipTests \
             -Dmaven.javadoc.skip=true \
             -Dcheckstyle.skip=true \
             -Dskip.spotless=true
 
-      - name: Build Docker image for seatunnel-web
+      - name: Build Docker image
         run: |
           WEB_PKG=$(find seatunnel-web/seatunnel-web-dist/target -name "*.tar.gz" | head -1)
           mkdir -p docker-build
           cp $WEB_PKG docker-build/
-          cp -r seatunnel/apache-seatunnel-2.3.8/connectors docker-build/
-          
+
           cat > docker-build/Dockerfile << 'EOF'
-          FROM openjdk:8-jre
-          ENV SEATUNNEL_WEB_HOME=/opt/seatunnel-web
+          FROM openjdk:11-jre-slim
+          WORKDIR /opt
           COPY *.tar.gz /opt/
-          RUN cd /opt && tar -zxvf *.tar.gz && \
+          RUN tar -zxvf *.tar.gz && \
               mv apache-seatunnel-web-* seatunnel-web && \
               rm -f *.tar.gz
-          COPY connectors/ /opt/seatunnel/connectors/
           WORKDIR /opt/seatunnel-web
           EXPOSE 8849
           CMD ["sh", "bin/seatunnel-backend-daemon.sh", "start"]
           EOF
-          
+
           cd docker-build
-          docker build -t seatunnel-web:2.3.8 .
+          docker build -t seatunnel-web:2.3.12 .
 
       - name: Login to Aliyun ACR
         run: |
@@ -106,6 +105,9 @@ jobs:
 
       - name: Push seatunnel-web to ACR
         run: |
-          docker tag seatunnel-web:2.3.8 ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel-web:2.3.8
-          docker push ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel-web:2.3.8
-          echo "✅ 推送完成！"
+          docker tag seatunnel-web:2.3.12 \
+            ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel-web:2.3.12
+          docker push \
+            ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel-web:2.3.12
+          echo "✅ seatunnel-web 镜像推送完成！"
+          echo "拉取命令: docker pull ${{ secrets.ALI_REGISTRY }}/my-mirrors/seatunnel-web:2.3.12"
