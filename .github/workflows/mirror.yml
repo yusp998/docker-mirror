@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: Pull images from Docker Hub
         run: |
-          docker pull apache/seatunnel:2.3.8
+          docker pull apache/seatunnel
 
       - name: Login to Aliyun ACR
         run: |
@@ -20,7 +20,7 @@ jobs:
 
       - name: Tag and Push to ACR
         run: |
-          docker tag apache/seatunnel:2.3.8 ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel:2.3.8
-          docker push ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel:2.3.8
+          docker tag apache/seatunnel:2.3.8 ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel
+          docker push ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel
           echo "✅ 全部推送完成！"
-          echo "拉取命令1: docker pull ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel:2.3.8"
+          echo "拉取命令1: docker pull ${{ secrets.ALI_REGISTRY }}/yusp-mirrors/seatunnel"
