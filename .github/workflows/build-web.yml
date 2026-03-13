@@ -20,39 +20,27 @@ jobs:
 
       - name: Clone seatunnel source
         run: |
-          git clone --depth=1 --branch 2.3.11 \
-            https://github.com/apache/seatunnel.git
+          git clone --depth=1 --branch 2.3.11 https://github.com/apache/seatunnel.git
 
       - name: Clone seatunnel-web source
         run: |
-          git clone --depth=1 --branch 1.0.2 \
-            https://github.com/apache/seatunnel-web.git
+          git clone --depth=1 --branch 1.0.2 https://github.com/apache/seatunnel-web.git
 
-      - name: Build seatunnel engine (获取 plugin-mapping)
+      - name: Build seatunnel engine
         working-directory: seatunnel
         run: |
-          ./mvnw -B clean install \
-            -DskipTests \
-            -Dmaven.javadoc.skip=true \
-            -Dcheckstyle.skip=true \
-            -Dlicense.skipAddThirdParty=true \
-            -Dskip.spotless=true
+          ./mvnw -B clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dlicense.skipAddThirdParty=true -Dskip.spotless=true
 
       - name: Copy plugin-mapping to seatunnel-web
         run: |
           cd seatunnel-web
           tar -zxvf ../seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.11-bin.tar.gz
-          cp apache-seatunnel-2.3.11/connectors/plugin-mapping.properties \
-            seatunnel-server/seatunnel-app/src/main/resources/
+          cp apache-seatunnel-2.3.11/connectors/plugin-mapping.properties seatunnel-server/seatunnel-app/src/main/resources/
 
       - name: Build seatunnel-web
         working-directory: seatunnel-web
         run: |
-          ./mvnw -B clean install \
-            -DskipTests \
-            -Dmaven.javadoc.skip=true \
-            -Dcheckstyle.skip=true \
-            -Dskip.spotless=true
+          ./mvnw -B clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dskip.spotless=true
 
       - name: Build Docker image
         run: |
@@ -60,42 +48,30 @@ jobs:
           echo "找到的包: $WEB_PKG"
           mkdir -p docker-build
           cp $WEB_PKG docker-build/
-
           cd docker-build
           tar -zxvf *.tar.gz
-          ls -la
           EXTRACTED_DIR=$(ls -d */ | head -1 | tr -d '/')
           echo "解压后目录名: $EXTRACTED_DIR"
           rm -rf $EXTRACTED_DIR
           cd ..
-
           cat > docker-build/Dockerfile << EOF
-FROM eclipse-temurin:11-jre-jammy
-WORKDIR /opt
-COPY *.tar.gz /opt/
-RUN tar -zxvf *.tar.gz && \
-    mv ${EXTRACTED_DIR} seatunnel-web && \
-    rm -f *.tar.gz
-WORKDIR /opt/seatunnel-web
-EXPOSE 8849
-CMD ["sh", "bin/seatunnel-backend-daemon.sh", "start"]
-EOF
-
+          FROM eclipse-temurin:11-jre-jammy
+          WORKDIR /opt
+          COPY *.tar.gz /opt/
+          RUN tar -zxvf *.tar.gz && mv $EXTRACTED_DIR seatunnel-web && rm -f *.tar.gz
+          WORKDIR /opt/seatunnel-web
+          EXPOSE 8849
+          CMD ["sh", "bin/seatunnel-backend-daemon.sh", "start"]
+          EOF
           cd docker-build
           docker build -t seatunnel-web:1.0.2 .
 
       - name: Login to Aliyun ACR
         run: |
-          docker login \
-            -u ${{ secrets.ALI_REGISTRY_USER }} \
-            -p ${{ secrets.ALI_REGISTRY_PWD }} \
-            ${{ secrets.ALI_REGISTRY }}
+          docker login -u ${{ secrets.ALI_REGISTRY_USER }} -p ${{ secrets.ALI_REGISTRY_PWD }} ${{ secrets.ALI_REGISTRY }}
 
       - name: Push to ACR
         run: |
-          docker tag seatunnel-web:1.0.2 \
-            crpi-w6hab0wki339s4cg.cn-hangzhou.personal.cr.aliyuncs.com/yusp-mirrors/seatunnel-web:1.0.2
-          docker push \
-            crpi-w6hab0wki339s4cg.cn-hangzhou.personal.cr.aliyuncs.com/yusp-mirrors/seatunnel-web:1.0.2
+          docker tag seatunnel-web:1.0.2 crpi-w6hab0wki339s4cg.cn-hangzhou.personal.cr.aliyuncs.com/yusp-mirrors/seatunnel-web:1.0.2
+          docker push crpi-w6hab0wki339s4cg.cn-hangzhou.personal.cr.aliyuncs.com/yusp-mirrors/seatunnel-web:1.0.2
           echo "✅ 推送完成！"
-          echo "拉取命令: docker pull crpi-w6hab0wki339s4cg.cn-hangzhou.personal.cr.aliyuncs.com/yusp-mirrors/seatunnel-web:1.0.2"
