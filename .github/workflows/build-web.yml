@@ -19,7 +19,7 @@ jobs:
           node-version: '16'
 
       - name: Clone seatunnel source
-        run: git clone --depth=1 --branch 2.3.11 https://github.com/apache/seatunnel.git
+        run: git clone --depth=1 --branch 2.3.8 https://github.com/apache/seatunnel.git
 
       - name: Clone seatunnel-web source
         run: git clone --depth=1 --branch 1.0.2 https://github.com/apache/seatunnel-web.git
@@ -31,8 +31,8 @@ jobs:
       - name: Copy plugin-mapping to seatunnel-web
         run: |
           cd seatunnel-web
-          tar -zxvf ../seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.11-bin.tar.gz
-          cp apache-seatunnel-2.3.11/connectors/plugin-mapping.properties seatunnel-server/seatunnel-app/src/main/resources/
+          tar -zxvf ../seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.8-bin.tar.gz
+          cp apache-seatunnel-2.3.8/connectors/plugin-mapping.properties seatunnel-server/seatunnel-app/src/main/resources/
 
       - name: Build seatunnel-web
         working-directory: seatunnel-web
@@ -45,7 +45,7 @@ jobs:
 
           mkdir -p docker-build
           cp $WEB_PKG docker-build/
-          cp seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.11-bin.tar.gz docker-build/
+          cp seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.8-bin.tar.gz docker-build/
 
           WEB_PKG_NAME=$(basename $WEB_PKG)
 
@@ -61,27 +61,23 @@ jobs:
           FROM eclipse-temurin:11-jre-jammy
           WORKDIR /opt
 
-          # 安装引擎
-          COPY apache-seatunnel-2.3.11-bin.tar.gz /opt/
-          RUN tar -zxvf apache-seatunnel-2.3.11-bin.tar.gz \\
-              && mv apache-seatunnel-2.3.11 seatunnel \\
-              && rm -f apache-seatunnel-2.3.11-bin.tar.gz
+          COPY apache-seatunnel-2.3.8-bin.tar.gz /opt/
+          RUN tar -zxvf apache-seatunnel-2.3.8-bin.tar.gz \
+              && mv apache-seatunnel-2.3.8 seatunnel \
+              && rm -f apache-seatunnel-2.3.8-bin.tar.gz
 
-          # 安装 web
           COPY ${WEB_PKG_NAME} /opt/
-          RUN tar -zxvf ${WEB_PKG_NAME} \\
-              && mv ${WEB_DIR} seatunnel-web \\
+          RUN tar -zxvf ${WEB_PKG_NAME} \
+              && mv ${WEB_DIR} seatunnel-web \
               && rm -f ${WEB_PKG_NAME}
 
-          # 复制必要配置文件
-          RUN cp /opt/seatunnel/connectors/plugin-mapping.properties /opt/seatunnel-web/conf/ \\
+          RUN cp /opt/seatunnel/connectors/plugin-mapping.properties /opt/seatunnel-web/conf/ \
               && cp /opt/seatunnel/config/hazelcast-client.yaml /opt/seatunnel-web/conf/
 
-          # 关键：把引擎的 lib jar 复制到 web 的 libs 目录，解决 NoClassDefFoundError
-          RUN cp /opt/seatunnel/lib/*.jar /opt/seatunnel-web/libs/ 2>/dev/null || true \\
+          # 把引擎 lib jar 复制到 web，解决 NoClassDefFoundError
+          RUN cp /opt/seatunnel/lib/*.jar /opt/seatunnel-web/libs/ 2>/dev/null || true \
               && cp /opt/seatunnel/connectors/*.jar /opt/seatunnel-web/libs/ 2>/dev/null || true
 
-          # 环境变量
           ENV SEATUNNEL_HOME=/opt/seatunnel
           ENV ST_WEB_BASEDIR_PATH=/opt/seatunnel-web
 
