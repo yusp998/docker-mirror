@@ -62,7 +62,7 @@ jobs:
           ENV SEATUNNEL_HOME=/opt/seatunnel
           WORKDIR /opt/seatunnel-web
           EXPOSE 8849
-          CMD ["sh", "bin/seatunnel-backend-daemon.sh", "start"]
+          CMD ["sh", "-c", "sh bin/seatunnel-backend-daemon.sh start && tail -f logs/seatunnel-web.log"]
           DOCKERFILE
           cd docker-build
           docker build -t seatunnel-web:1.0.2 .
