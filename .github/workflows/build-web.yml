@@ -19,17 +19,14 @@ jobs:
           node-version: '16'
 
       - name: Clone seatunnel source
-        run: |
-          git clone --depth=1 --branch 2.3.11 https://github.com/apache/seatunnel.git
+        run: git clone --depth=1 --branch 2.3.11 https://github.com/apache/seatunnel.git
 
       - name: Clone seatunnel-web source
-        run: |
-          git clone --depth=1 --branch 1.0.2 https://github.com/apache/seatunnel-web.git
+        run: git clone --depth=1 --branch 1.0.2 https://github.com/apache/seatunnel-web.git
 
       - name: Build seatunnel engine
         working-directory: seatunnel
-        run: |
-          ./mvnw -B clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dlicense.skipAddThirdParty=true -Dskip.spotless=true
+        run: ./mvnw -B clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dlicense.skipAddThirdParty=true -Dskip.spotless=true
 
       - name: Copy plugin-mapping to seatunnel-web
         run: |
@@ -39,8 +36,7 @@ jobs:
 
       - name: Build seatunnel-web
         working-directory: seatunnel-web
-        run: |
-          ./mvnw -B clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dskip.spotless=true
+        run: ./mvnw -B clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dskip.spotless=true
 
       - name: Build Docker image
         run: |
@@ -48,27 +44,31 @@ jobs:
           echo "找到的包: $WEB_PKG"
           mkdir -p docker-build
           cp $WEB_PKG docker-build/
+          cp seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.11-bin.tar.gz docker-build/
           cd docker-build
-          tar -zxvf *.tar.gz
-          EXTRACTED_DIR=$(ls -d */ | head -1 | tr -d '/')
-          echo "解压后目录名: $EXTRACTED_DIR"
-          rm -rf $EXTRACTED_DIR
+          tar -zxvf $(basename $WEB_PKG)
+          WEB_DIR=$(ls -d */ | head -1 | tr -d '/')
+          echo "web目录名: $WEB_DIR"
+          rm -rf $WEB_DIR
           cd ..
-          cat > docker-build/Dockerfile << EOF
+          cat > docker-build/Dockerfile << DOCKERFILE
           FROM eclipse-temurin:11-jre-jammy
           WORKDIR /opt
-          COPY *.tar.gz /opt/
-          RUN tar -zxvf *.tar.gz && mv $EXTRACTED_DIR seatunnel-web && rm -f *.tar.gz
+          COPY apache-seatunnel-2.3.11-bin.tar.gz /opt/
+          RUN tar -zxvf apache-seatunnel-2.3.11-bin.tar.gz && mv apache-seatunnel-2.3.11 seatunnel && rm -f apache-seatunnel-2.3.11-bin.tar.gz
+          COPY $(basename $WEB_PKG) /opt/
+          RUN tar -zxvf $(basename $WEB_PKG) && mv $WEB_DIR seatunnel-web && rm -f $(basename $WEB_PKG)
+          RUN cp /opt/seatunnel/connectors/plugin-mapping.properties /opt/seatunnel-web/conf/ && cp /opt/seatunnel/config/hazelcast-client.yaml /opt/seatunnel-web/conf/
+          ENV SEATUNNEL_HOME=/opt/seatunnel
           WORKDIR /opt/seatunnel-web
           EXPOSE 8849
           CMD ["sh", "bin/seatunnel-backend-daemon.sh", "start"]
-          EOF
+          DOCKERFILE
           cd docker-build
           docker build -t seatunnel-web:1.0.2 .
 
       - name: Login to Aliyun ACR
-        run: |
-          docker login -u ${{ secrets.ALI_REGISTRY_USER }} -p ${{ secrets.ALI_REGISTRY_PWD }} ${{ secrets.ALI_REGISTRY }}
+        run: docker login -u ${{ secrets.ALI_REGISTRY_USER }} -p ${{ secrets.ALI_REGISTRY_PWD }} ${{ secrets.ALI_REGISTRY }}
 
       - name: Push to ACR
         run: |
