@@ -41,29 +41,55 @@ jobs:
       - name: Build Docker image
         run: |
           WEB_PKG=$(find seatunnel-web/seatunnel-web-dist/target -name "*.tar.gz" | head -1)
-          echo "找到的包: $WEB_PKG"
+          echo "找到的web包: $WEB_PKG"
+
           mkdir -p docker-build
           cp $WEB_PKG docker-build/
           cp seatunnel/seatunnel-dist/target/apache-seatunnel-2.3.11-bin.tar.gz docker-build/
+
+          WEB_PKG_NAME=$(basename $WEB_PKG)
+
+          # 提取web目录名
           cd docker-build
-          tar -zxvf $(basename $WEB_PKG)
+          tar -zxvf $WEB_PKG_NAME
           WEB_DIR=$(ls -d */ | head -1 | tr -d '/')
           echo "web目录名: $WEB_DIR"
           rm -rf $WEB_DIR
           cd ..
+
           cat > docker-build/Dockerfile << DOCKERFILE
           FROM eclipse-temurin:11-jre-jammy
           WORKDIR /opt
+
+          # 安装引擎
           COPY apache-seatunnel-2.3.11-bin.tar.gz /opt/
-          RUN tar -zxvf apache-seatunnel-2.3.11-bin.tar.gz && mv apache-seatunnel-2.3.11 seatunnel && rm -f apache-seatunnel-2.3.11-bin.tar.gz
-          COPY $(basename $WEB_PKG) /opt/
-          RUN tar -zxvf $(basename $WEB_PKG) && mv $WEB_DIR seatunnel-web && rm -f $(basename $WEB_PKG)
-          RUN cp /opt/seatunnel/connectors/plugin-mapping.properties /opt/seatunnel-web/conf/ && cp /opt/seatunnel/config/hazelcast-client.yaml /opt/seatunnel-web/conf/
+          RUN tar -zxvf apache-seatunnel-2.3.11-bin.tar.gz \\
+              && mv apache-seatunnel-2.3.11 seatunnel \\
+              && rm -f apache-seatunnel-2.3.11-bin.tar.gz
+
+          # 安装 web
+          COPY ${WEB_PKG_NAME} /opt/
+          RUN tar -zxvf ${WEB_PKG_NAME} \\
+              && mv ${WEB_DIR} seatunnel-web \\
+              && rm -f ${WEB_PKG_NAME}
+
+          # 复制必要配置文件
+          RUN cp /opt/seatunnel/connectors/plugin-mapping.properties /opt/seatunnel-web/conf/ \\
+              && cp /opt/seatunnel/config/hazelcast-client.yaml /opt/seatunnel-web/conf/
+
+          # 关键：把引擎的 lib jar 复制到 web 的 libs 目录，解决 NoClassDefFoundError
+          RUN cp /opt/seatunnel/lib/*.jar /opt/seatunnel-web/libs/ 2>/dev/null || true \\
+              && cp /opt/seatunnel/connectors/*.jar /opt/seatunnel-web/libs/ 2>/dev/null || true
+
+          # 环境变量
           ENV SEATUNNEL_HOME=/opt/seatunnel
+          ENV ST_WEB_BASEDIR_PATH=/opt/seatunnel-web
+
           WORKDIR /opt/seatunnel-web
           EXPOSE 8849
-          CMD ["sh", "-c", "sh bin/seatunnel-backend-daemon.sh start && tail -f logs/seatunnel-web.log"]
+          CMD ["sh", "-c", "mkdir -p logs && touch logs/seatunnel-web.log && sh bin/seatunnel-backend-daemon.sh start && tail -f logs/seatunnel-web.log"]
           DOCKERFILE
+
           cd docker-build
           docker build -t seatunnel-web:1.0.2 .
 
